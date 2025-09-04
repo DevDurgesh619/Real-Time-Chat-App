@@ -40,10 +40,8 @@ export default function DashboardPage() {
             console.error("Error creating room:", err);
         });
 
-  
-      alert(`Creating room: "${roomName}"`);
     } else {
-      alert("Please enter a name for your new room.");
+      
     }
   };
 
@@ -54,9 +52,9 @@ export default function DashboardPage() {
       console.log("Request to JOIN room:", roomName);
       // TODO: Add your backend request logic here
       // For example: router.push(`/room/${roomName}`);
-      alert(`Joining room: "${roomName}"`);
+     
     } else {
-      alert("Please enter the name of the room you want to join.");
+      
     }
   };
   

@@ -79,12 +79,13 @@ wss.on('connection', function connection(ws, request) {
     if (parsedData.type === "chat") {
       const roomId = parsedData.roomId;
       const message = parsedData.message;
+      const u_id = parsedData.message.shape.id
 
       await prismaClient.chat.create({
         data: {
           roomId: Number(roomId),
           message,
-          userId
+          userId,
         }
       });
 
@@ -98,6 +99,59 @@ wss.on('connection', function connection(ws, request) {
         }
       })
     }
+    if (parsedData.type === "delete_shape") {
+        const shapeId = parsedData.payload.id;
+        const roomId = parsedData.payload.roomId;
+        await prismaClient.chat.deleteMany({
+            where: {
+                roomId: Number(roomId),
+                message: {
+                    contains: `"id":"${shapeId}"`
+                }
+            }
+        });
+        users.forEach(user => {
+            if (user.rooms.includes(roomId)) {
+                user.ws.send(JSON.stringify({
+                    type: "delete_shape",
+                    payload: {
+                        id:shapeId,
+                        roomId:roomId
+                    }
+                }));
+            }
+        });
+    }
+    if (parsedData.type === "update_shape") {
+      const { id, roomId, message } = parsedData.payload;
+
+      await prismaClient.chat.updateMany({
+        where: {
+          roomId: Number(roomId),
+          message: {
+            contains: `"id":"${id}"`
+          }
+        },
+        data: {
+          message 
+        }
+      });
+
+      users.forEach(user => {
+        if (user.rooms.includes(roomId)) {
+          user.ws.send(JSON.stringify({
+            type: "update_shape",
+            payload: {
+              id,
+              roomId,
+              message
+            }
+          }));
+        }
+      });
+    }
+
+
 
   });
 
