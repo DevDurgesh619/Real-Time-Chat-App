@@ -2,7 +2,7 @@
 
 import { ButtonMain } from '@/components/ButtonMain';
 import { InputBox } from '@/components/inputBox';
-import { defaultStyles, defaultStyles2, styleInputJoin } from "@/config"
+import { BACKEND_URL, defaultStyles, defaultStyles2, styleInputJoin } from "@/config"
 import { ArrowRightIcon } from '@/Icons/ArrowRightIcon';
 import { PlusIcon } from '@/Icons/PlucIcon';
 import { useRouter } from 'next/navigation';
@@ -22,7 +22,7 @@ export default function DashboardPage() {
     
     if (roomName) {
       console.log("Request to CREATE room:", roomName);
-      fetch("http://localhost:3001/room", {
+      fetch(`${BACKEND_URL}/room`, {
             method: "POST",
             headers: { "Content-Type": "application/json",
                 "Authorization":`${token}`
@@ -47,12 +47,28 @@ export default function DashboardPage() {
 
   // 3. Handler for joining an existing room
   const handleJoinRoom = () => {
-    const roomName = joinRoomRef.current?.value.trim();
-    if (roomName) {
-      console.log("Request to JOIN room:", roomName);
-      // TODO: Add your backend request logic here
-      // For example: router.push(`/room/${roomName}`);
-     
+     const token = localStorage.getItem("token")
+    const roomSlug = joinRoomRef.current?.value.trim();
+    
+    if (roomSlug) {
+      console.log("Request to join room:", roomSlug);
+      fetch(`${BACKEND_URL}/room/${roomSlug}`, {
+            method: "get",
+            headers: { "Content-Type": "application/json",
+                "Authorization":`${token}`
+            },
+            cache: "no-store",
+        })
+        .then((res) => res.json())
+        .then((data) => {
+            const roomId = data.roomId;
+            console.log("Room created:", roomId);
+            router.push(`canvas/${roomId}`)
+        })
+        .catch((err) => {
+            console.error("Error creating room:", err);
+        });
+
     } else {
       
     }
@@ -98,7 +114,7 @@ export default function DashboardPage() {
             <div className="bg-white p-8 border-2 border-slate-800 rounded-xl shadow-[8px_8px_0px_#1e293b] transition-transform hover:-translate-y-1 hover:-translate-x-1">
               <h2 className="text-3xl font-bold text-slate-800 mb-6">Join an Existing Room</h2>
               <div className="space-y-4">
-                <InputBox className={styleInputJoin} type='text' 
+                <InputBox className={styleInputJoin} type='text'  ref={joinRoomRef}
                 placeholder='Enter your room name' onEnter={handleJoinRoom}/>
 
                 <ButtonMain text='Join Room' startIcon={<PlusIcon className='w-6 h-6'/>} 

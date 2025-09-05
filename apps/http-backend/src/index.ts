@@ -118,7 +118,8 @@ app.get("/room/:slug",async (req,res)=>{
                 slug
             }
         })
-        res.json({room})
+        if(!room) return
+        res.json({roomId:room.id})
     }
     catch(e){
         console.error("THIS is the ERROR: ",e)

@@ -1,5 +1,4 @@
 "use client"
-import { initDraw } from "@/app/draw";
 import { IconButton } from "./IconButton";
 import { useEffect, useRef, useState } from "react";
 import { ButtonMain } from "./ButtonMain";
