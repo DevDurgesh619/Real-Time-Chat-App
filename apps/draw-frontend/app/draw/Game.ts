@@ -125,14 +125,14 @@ private handleWheel = (e: WheelEvent) => {
         const dy = point.y - shape.centerY;
         return Math.sqrt(dx * dx + dy * dy) <= shape.radius;
     }else if (shape.type === 'line') {
-        const dist = (p1: {x, y}, p2: {x, y}) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+        const dist = (p1: {x: number, y: number}, p2: {x: number, y: number}) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
         const distToStart = dist(point, { x: shape.x, y: shape.y });
         const distToEnd = dist(point, { x: shape.endX, y: shape.endY });
         const lineLength = dist({ x: shape.x, y: shape.y }, { x: shape.endX, y: shape.endY });
         const buffer = 0.5; 
         return distToStart + distToEnd >= lineLength - buffer && distToStart + distToEnd <= lineLength + buffer;
     }else if (shape.type === 'pencil') {
-        const dist = (p1: {x, y}, p2: {x, y}) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+        const dist = (p1: {x: number, y: number}, p2: {x: number, y: number}) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
         const buffer = 0.5; 
         for (let i = 1; i < shape.points.length; i++) {
             const startPoint = shape.points[i - 1];
