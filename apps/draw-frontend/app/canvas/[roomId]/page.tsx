@@ -1,12 +1,6 @@
 import { RoomCanvas } from "@/components/RoomCanvas";
 
-type PageProps = {
-  params: {
-    roomId: string;
-  };
-};
-
-export default function CanvasPage({ params }: PageProps) {
+export default function CanvasPage({ params }: { params: { roomId: string } }) {
   const { roomId } = params;
   console.log(roomId);
   console.log(typeof roomId);
