@@ -10,8 +10,7 @@ app.use(express.json());
 import cors from "cors";
 
 app.use(cors({
-  origin: ["https://draw-app-frontend-six.vercel.app"],
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  origin: ["https://https://draw-app-frontend-git-main-devdurgesh619s-projects.vercel.app/"],
   credentials: true
 }));
 
