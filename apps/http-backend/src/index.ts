@@ -4,14 +4,18 @@ import { JWT_SECRET } from '@repo/backend-common/config';
 import { userMiddleware } from "./userMiddleware";
 import { CreateUserSchema, SigninSchema, CreateRoomSchema } from "@repo/common/types";
 import { prismaClient } from "@repo/db/client";
-
+import cors from "cors";
 const app = express();
 app.use(express.json());
-import cors from "cors";
-
+app.options("*", cors());
 app.use(cors({
-  origin: ["https://https://draw-app-frontend-git-main-devdurgesh619s-projects.vercel.app/"],
-  credentials: true
+  origin: [
+    "https://draw-app-frontend-six.vercel.app",
+    "http://localhost:3000" // keep for local dev
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
 }));
 
 
