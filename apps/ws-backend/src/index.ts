@@ -1,14 +1,15 @@
-import { WebSocket, WebSocketServer } from 'ws';
-import jwt, { JwtPayload } from "jsonwebtoken";
-import { JWT_SECRET } from '@repo/backend-common/config';
+import { WebSocket, WebSocketServer } from "ws";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "@repo/backend-common/config";
 import { prismaClient } from "@repo/db/client";
 
-const PORT = Number(process.env.PORT) || 8080; 
+const PORT = Number(process.env.PORT) || 8080;
 const wss = new WebSocketServer({ port: PORT });
+
 interface User {
-  ws: WebSocket,
-  rooms: string[],
-  userId: string
+  ws: WebSocket;
+  rooms: string[];
+  userId: string;
 }
 
 const users: User[] = [];
@@ -16,143 +17,142 @@ const users: User[] = [];
 function checkUser(token: string): string | null {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-
-    if (typeof decoded == "string") {
+    if (typeof decoded === "string" || !decoded || !(decoded as any).userId) {
       return null;
     }
-
-    if (!decoded || !decoded.userId) {
-      return null;
-    }
-
-    return decoded.userId;
-  } catch(e) {
+    return (decoded as any).userId;
+  } catch {
     return null;
   }
-  return null;
 }
 
-wss.on('connection', function connection(ws, request) {
+wss.on("connection", (ws, request) => {
   const url = request.url;
-  if (!url) {
-    return;
-  }
-  const queryParams = new URLSearchParams(url.split('?')[1]);
-  const token = queryParams.get('token') || "";
+  if (!url) return;
+
+  const queryParams = new URLSearchParams(url.split("?")[1]);
+  const token = queryParams.get("token") || "";
   const userId = checkUser(token);
 
-  if (userId == null) {
-    ws.close()
-    return null;
+  if (!userId) {
+    ws.close();
+    return;
   }
 
-  users.push({
-    userId,
-    rooms: [],
-    ws
-  })
+  const user: User = { ws, rooms: [], userId };
+  users.push(user);
 
-  ws.on('message', async function message(data) {
+  console.log(`✅ User connected: ${userId}`);
+
+  ws.on("close", () => {
+    const index = users.indexOf(user);
+    if (index !== -1) users.splice(index, 1);
+    console.log(`❌ User disconnected: ${userId}`);
+  });
+
+  ws.on("message", async (data) => {
     let parsedData;
-    if (typeof data !== "string") {
+    try {
       parsedData = JSON.parse(data.toString());
-    } else {
-      parsedData = JSON.parse(data); // {type: "join-room", roomId: 1}
+    } catch {
+      console.error("❌ Invalid JSON received");
+      return;
     }
 
-    if (parsedData.type === "join_room") {
-      const user = users.find(x => x.ws === ws);
-      user?.rooms.push(parsedData.roomId);
+    const { type } = parsedData;
+    console.log("📩 Message received:", type);
+
+    if (type === "join_room") {
+      user.rooms.push(parsedData.roomId);
+      console.log(`📥 User ${userId} joined room ${parsedData.roomId}`);
     }
 
-    if (parsedData.type === "leave_room") {
-      const user = users.find(x => x.ws === ws);
-      if (!user) {
-        return;
-      }
-      user.rooms = user?.rooms.filter(x => x === parsedData.room);
+    if (type === "leave_room") {
+      user.rooms = user.rooms.filter((x) => x !== parsedData.roomId);
+      console.log(`📤 User ${userId} left room ${parsedData.roomId}`);
     }
 
-    console.log("message received")
-    console.log(parsedData);
+    if (type === "chat") {
+      const { roomId, message } = parsedData;
 
-    if (parsedData.type === "chat") {
-      const roomId = parsedData.roomId;
-      const message = parsedData.message;
-      const u_id = parsedData.message.shape.id
-
+      // ✅ Ensure message stored properly in DB
       await prismaClient.chat.create({
         data: {
           roomId: Number(roomId),
-          message,
+          message: JSON.stringify(message),
           userId,
-        }
+        },
       });
 
-      users.forEach(user => {
-        if (user.rooms.includes(roomId)) {
-          user.ws.send(JSON.stringify({
-            type: "chat",
-            message: message,
-            roomId
-          }))
+      // ✅ Broadcast only to users in same room
+      users.forEach((u) => {
+        if (
+          u.rooms.includes(roomId) &&
+          u.ws.readyState === WebSocket.OPEN
+        ) {
+          u.ws.send(
+            JSON.stringify({
+              type: "chat",
+              message,
+              roomId,
+            })
+          );
         }
-      })
+      });
     }
-    if (parsedData.type === "delete_shape") {
-        const shapeId = parsedData.payload.id;
-        const roomId = parsedData.payload.roomId;
-        await prismaClient.chat.deleteMany({
-            where: {
-                roomId: Number(roomId),
-                message: {
-                    contains: `"id":"${shapeId}"`
-                }
-            }
-        });
-        users.forEach(user => {
-            if (user.rooms.includes(roomId)) {
-                user.ws.send(JSON.stringify({
-                    type: "delete_shape",
-                    payload: {
-                        id:shapeId,
-                        roomId:roomId
-                    }
-                }));
-            }
-        });
+
+    if (type === "delete_shape") {
+      const shapeId = parsedData.payload.id;
+      const roomId = parsedData.payload.roomId;
+
+      await prismaClient.chat.deleteMany({
+        where: {
+          roomId: Number(roomId),
+          message: {
+            contains: `"id":"${shapeId}"`,
+          },
+        },
+      });
+
+      users.forEach((u) => {
+        if (u.rooms.includes(roomId) && u.ws.readyState === WebSocket.OPEN) {
+          u.ws.send(
+            JSON.stringify({
+              type: "delete_shape",
+              payload: { id: shapeId, roomId },
+            })
+          );
+        }
+      });
     }
-    if (parsedData.type === "update_shape") {
+
+    if (type === "update_shape") {
       const { id, roomId, message } = parsedData.payload;
 
       await prismaClient.chat.updateMany({
         where: {
           roomId: Number(roomId),
           message: {
-            contains: `"id":"${id}"`
-          }
+            contains: `"id":"${id}"`,
+          },
         },
         data: {
-          message 
-        }
+          message: JSON.stringify(message),
+        },
       });
 
-      users.forEach(user => {
-        if (user.rooms.includes(roomId)) {
-          user.ws.send(JSON.stringify({
-            type: "update_shape",
-            payload: {
-              id,
-              roomId,
-              message
-            }
-          }));
+      users.forEach((u) => {
+        if (u.rooms.includes(roomId) && u.ws.readyState === WebSocket.OPEN) {
+          u.ws.send(
+            JSON.stringify({
+              type: "update_shape",
+              payload: { id, roomId, message },
+            })
+          );
         }
       });
     }
-
-
-
   });
-
 });
+
+console.log(`🚀 WebSocket server running on port ${PORT}`);
