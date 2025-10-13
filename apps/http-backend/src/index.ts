@@ -15,15 +15,8 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
+  optionsSuccessStatus: 200,  // ✅ important for preflight
 }));
-
-// ✅ Explicitly handle preflight requests
-app.options("*", (req, res) => {
-  res.header("Access-Control-Allow-Origin", "https://draw-app-frontend-git-main-devdurgesh619s-projects.vercel.app");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.sendStatus(200);
-});
 
 
 app.post("/signup",async (req,res)=>{
