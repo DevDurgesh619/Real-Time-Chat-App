@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from "next/navigation";
 import { SendICON } from '@/Icons/sendICon';
+import { BACKEND_URL, WS_URL } from '@/config';
 
-const HTTP_BACKEND_URL = "http://localhost:3001";
-const WS_BACKEND_URL = "ws://localhost:8080";
+
 
 //@ts-ignore
 const ChatBubble = ({ message, isCurrentUser }) => {
@@ -76,7 +76,7 @@ export default function ChatPage() {
 
         const fetchChatHistory = async () => {
              try {
-                const response = await fetch(`${HTTP_BACKEND_URL}/chat/${roomId}`, {
+                const response = await fetch(`${BACKEND_URL}/chat/${roomId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!response.ok) throw new Error("Failed to fetch history");
@@ -91,7 +91,7 @@ export default function ChatPage() {
         };
         fetchChatHistory();
 
-        const socket = new WebSocket(`${WS_BACKEND_URL}?token=${token}`);
+        const socket = new WebSocket(`${WS_URL}?token=${token}`);
         setWs(socket);
 
         socket.onopen = () => {
