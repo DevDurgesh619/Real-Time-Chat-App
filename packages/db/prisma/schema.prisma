@@ -1,41 +1,74 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  
 }
 
 datasource db {
   provider = "postgresql"
-  url      =env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
-model User{
-  id            String     @id @default(uuid())
-  email         String  @unique
-  password      String  
-  photo         String?
-  name          String?
-  rooms         Room[]
-  chat          Chat[]
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String // IMPORTANT: Always store a hashed password, not plain text.
+  photo     String?
+  name      String?
+  createdAt DateTime  @default(now())
+
+  // Rooms this user has created (one-to-many)
+  createdRooms Room[]
+
+  // Messages this user has sent (one-to-many)
+  messages Chat[]
+
+  // Rooms this user is a member of (many-to-many)
+  rooms RoomMember[]
 }
-model Room{
-  id          Int @default(autoincrement()) @id
-  slug        String @unique
-  createdAt   DateTime  @default(now())
-  adminId     String
-  admin       User  @relation(fields: [adminId],references: [id])
-  chat        Chat[]
+
+model Room {
+  id        Int       @id @default(autoincrement())
+  slug      String    @unique
+  createdAt DateTime  @default(now())
+
+  // The user who created the room
+  adminId   String
+  admin     User      @relation(fields: [adminId], references: [id])
+
+  // All messages in this room (one-to-many)
+  messages  Chat[]
+
+  // All members of this room (many-to-many)
+  members   RoomMember[]
+
+  @@index([slug]) // Add index for faster room lookups
 }
-  
-model Chat{
-  id          Int   @default(autoincrement()) @id
-  message     String
-  userId      String
-  roomId      Int
-  room        Room    @relation(fields: [roomId],references: [id])
-  user        User    @relation(fields: [userId],references: [id])
+
+// This is the new "join table" for the many-to-many relationship
+// It tracks which users are in which rooms.
+model RoomMember {
+  userId String
+  roomId Int
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roomId]) // A user can only be in a room once
+}
+
+model Chat {
+  id        Int      @id @default(autoincrement())
+  message   String
+  createdAt DateTime @default(now()) // Essential for ordering messages
+
+  // The user who sent the message
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // The room this message belongs to
+  roomId    Int
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt]) // Index for fetching a room's chat history quickly
 }

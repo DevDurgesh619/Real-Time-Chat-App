@@ -1,137 +1,105 @@
 import express from "express";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from '@repo/backend-common/config';
-import { userMiddleware } from "./userMiddleware";
-import { CreateUserSchema, SigninSchema, CreateRoomSchema } from "@repo/common/types";
+import { userMiddleware } from "./userMiddleware"; 
+import { CreateUserSchema, SigninSchema, CreateRoomSchema } from "@repo/common/types"; 
 import { prismaClient } from "@repo/db/client";
 import cors from "cors";
+
 const app = express();
 app.use(express.json());
 app.use(cors({
-  origin: [
-    "https://draw-app-frontend-git-main-devdurgesh619s-projects.vercel.app",
-    "http://localhost:3000"
-  ],
+  origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true,
-  optionsSuccessStatus: 200,  // ✅ important for preflight
 }));
 
-
-app.post("/signup",async (req,res)=>{
+app.post("/signup", async (req, res) => {
     const parsedData = CreateUserSchema.safeParse(req.body);
-    if(!parsedData.success){
-        console.log(parsedData.error);
-        res.json({
-            msg:"incorrect credintials"
-        })
-        return
+    if (!parsedData.success) {
+        return res.status(400).json({ msg: "Incorrect credentials", error: parsedData.error });
     }
-    try{
+    try {
         const user = await prismaClient.user.create({
-            data:{
-                email:parsedData.data?.username,
-                password:parsedData.data?.password,
-                name:parsedData.data?.name
+            data: {
+                email: parsedData.data.username,
+                password: parsedData.data.password, //hash password
+                name: parsedData.data.name
             }
-        })
-        res.json({
-            //@ts-ignore
-            userId:user.id
-        })
+        });
+        res.status(201).json({ userId: user.id });
+    } catch (e) {
+        res.status(409).json({ msg: "User already exists with this username" });
+        console.error("the error is: ",e)
     }
-    catch(e){
-        res.status(411).json({msg:"user already exists with this usernamae"})
-        console.error("This is the ERROR: ",e)
-    }
-})
-app.post("/signin",async (req,res)=>{
+});
+
+app.post("/signin", async (req, res) => {
     const parsedData = SigninSchema.safeParse(req.body);
-    if(!parsedData.success){
-        console.log(parsedData.error)
-        res.json({
-            msg:"incorrect credintials"
-        })
+    if (!parsedData.success) {
+        return res.status(400).json({ msg: "Incorrect credentials" });
     }
     const user = await prismaClient.user.findFirst({
-        where:{
-            email:parsedData.data?.username,
-            password:parsedData.data?.password
+        where: {
+            email: parsedData.data.username,
+            password: parsedData.data.password // Compare hashed passwords in a real app
         }
-    })
-    if(!user){
-        res.status(403).json({msg:"not Authorized"})
-        return
+    });
+    if (!user) {
+        return res.status(403).json({ msg: "Not Authorized" });
     }
-    const token = jwt.sign({
-        userId: user?.id
-    }, JWT_SECRET);
-    res.json({token})
-})
-app.post("/room",userMiddleware,async (req,res)=>{
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET);
+    res.json({ token });
+});
+
+app.post("/room", userMiddleware, async (req, res) => {
     const parsedData = CreateRoomSchema.safeParse(req.body);
-    if(!parsedData.success){
-        console.log(parsedData.error)
-        res.json({
-            msg:"incorrect credintials"
-        })
+    if (!parsedData.success) {
+        return res.status(400).json({ msg: "Incorrect room name" });
     }
-    try{
+    try {
         //@ts-ignore
         const userId = req.userId;
         const room = await prismaClient.room.create({
-            data:{
-                slug: parsedData.data?.name?? 'default slug',
-                adminId:userId
+            data: {
+                slug: parsedData.data.name,
+                adminId: userId
             }
-        })
-        res.json({
-            roomId:room.id
-        })
+        });
+        res.status(201).json({ roomId: room.id });
+    } catch (e) {
+        res.status(409).json({ msg: "Room already exists with this name" });
     }
-    catch(e){
-        console.error("This is the ERROR: ",e)
-        res.json({Msg:"Room already exists with this name"})
+});
 
-    }  
-})
-app.get("/chat/:roomId",async (req,res)=>{
-    try{
+app.get("/chat/:roomId", userMiddleware, async (req, res) => {
+    try {
         const roomId = Number(req.params.roomId);
         const messages = await prismaClient.chat.findMany({
-            where:{
-                roomId:roomId
-            },
-            orderBy:{
-                id:"desc"
-            },
-            take:1000
-        }) 
-        res.json({
-            messages
-        })
+            where: { roomId: roomId },
+            include: { user: { select: { id: true, name: true, email: true } } }, // Include user details
+            orderBy: { id: "asc" },
+            take: 1000
+        });
+        res.json({ messages });
+    } catch (e) {
+        res.status(500).json({ messages: [] });
     }
-    catch(e){
-        console.error("THE ERROR is: ",e)
-        res.json({
-            messages:[]
-        })
-    }
-})
-app.get("/room/:slug",async (req,res)=>{
-    try{
+});
+
+app.get("/room/:slug", userMiddleware, async (req, res) => {
+    try {
         const slug = req.params.slug;
-        const room = await prismaClient.room.findFirst({
-            where:{
-                slug
-            }
-        })
-        if(!room) return
-        res.json({roomId:room.id})
+        const room = await prismaClient.room.findFirst({ where: { slug } });
+        if (!room) {
+            return res.status(404).json({ msg: "Room not found" });
+        }
+        res.json({ roomId: room.id });
+    } catch (e) {
+        res.status(500).json({ msg: "Server error" });
     }
-    catch(e){
-        console.error("THIS is the ERROR: ",e)
-    }
-})
-app.listen(3001)
+});
+
+app.listen(3001, () => {
+    console.log("HTTP server running on port 3001");
+});
