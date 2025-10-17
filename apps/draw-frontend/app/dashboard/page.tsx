@@ -1,8 +1,8 @@
 "use client";
+import { BACKEND_URL } from '@/config';
 import { useRouter } from 'next/navigation';
 import React, { useRef, useState } from 'react';
 
-const HTTP_BACKEND_URL = "http://localhost:3001";
 
 const Input = React.forwardRef<HTMLInputElement, { placeholder: string, onKeyPress?: (e: React.KeyboardEvent<HTMLInputElement>) => void }>(({ placeholder, onKeyPress }, ref) => (
     <input
@@ -69,7 +69,7 @@ export default function DashboardPage() {
         const roomName = createRoomRef.current?.value.trim();
         if (!roomName) return;
 
-        const data = await handleApiRequest(`${HTTP_BACKEND_URL}/room`, { name: roomName });
+        const data = await handleApiRequest(`${BACKEND_URL}/room`, { name: roomName });
         if (data && data.roomId) {
             router.push(`/chat/${data.roomId}`);
         }
@@ -82,7 +82,7 @@ export default function DashboardPage() {
         setError(null);
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${HTTP_BACKEND_URL}/room/${roomName}`, {
+            const response = await fetch(`${BACKEND_URL}/room/${roomName}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
